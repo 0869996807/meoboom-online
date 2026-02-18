@@ -4,7 +4,7 @@
 <link rel="stylesheet" href="style.css"/></head><body>
 <header class="topbar"><div class="brand"><div class="logo">😼💥</div><div>
 <div class="title">MÈO BOOM! Party 10 • Online</div>
-<div class="subtitle">Chơi nhiều điện thoại • Đồng bộ theo phòng</div></div></div>
+<div class="subtitle">Nhập tên → tạo/vào phòng → chơi khác mạng</div></div></div>
 <div class="right"><span class="pill" id="conn">Đang kết nối…</span></div></header>
 
 <main class="wrap">
@@ -22,10 +22,11 @@
 <div class="row">
 <button class="btn primary" id="btnCreate">Tạo phòng</button>
 <button class="btn" id="btnJoin">Vào phòng</button>
+<button class="btn ghost" id="btnRanking">Xếp hạng</button>
 </div>
 
 <div class="inviteBox hidden" id="inviteBox">
-<div class="inviteTitle">✅ Phòng đã tạo: <b id="inviteCode">—</b></div>
+<div class="inviteTitle">✅ Phòng: <b id="inviteCode">—</b></div>
 <div class="row">
 <button class="btn ghost" id="btnCopyCode">Copy mã</button>
 <button class="btn primary" id="btnCopyLink">Copy link mời</button>
@@ -40,13 +41,15 @@
 <div class="gameHead"><div>
 <div class="hline"><span class="pill" id="pillRoom"></span><span class="pill" id="pillMode"></span>
 <span class="pill" id="pillPlayers"></span><span class="pill" id="pillAlive"></span></div>
-<h2 id="turnTitle">—</h2><div class="sub" id="turnSub">—</div></div>
-<div class="deckBox">
-<div class="deckCount"><span id="deckCount">0</span> lá</div>
+<h2 id="turnTitle">—</h2><div class="sub" id="turnSub">—</div>
+<div class="row">
 <button id="btnStartGame" class="btn primary hidden">Host: Bắt đầu ván</button>
 <button id="btnDraw" class="btn primary">Bốc bài</button>
 <button id="btnPeek" class="btn ghost">Xem bài trên</button>
-</div></div>
+<button id="btnHistory" class="btn ghost">Lịch sử</button>
+</div>
+</div>
+<div class="deckBox"><div class="deckCount"><span id="deckCount">0</span> lá</div></div></div>
 
 <div class="twoCol">
 <section class="panel">
@@ -56,8 +59,7 @@
 <button class="segBtn" id="viewCompact">Gọn</button>
 </div></div>
 <div id="hand" class="hand fan"></div>
-<div class="row"><button id="btnPlay" class="btn">Đánh lá đã chọn</button></div>
-<small class="hint">Chạm chọn lá • Chạm giữ để xem mô tả • Vuốt ngang để xem thêm.</small>
+<small class="hint">Chạm chọn lá • Chạm giữ xem mô tả • Vuốt ngang để xem thêm.</small>
 </section>
 
 <section class="panel"><h3>Nhật ký</h3><div id="log" class="log"></div>
@@ -80,6 +82,18 @@
 <dialog id="dlgPrompt" class="dlg">
 <h3 id="promptTitle">Chọn</h3><div id="promptBody"></div>
 <div class="row right"><button class="btn" id="promptCancel">Huỷ</button><button class="btn primary" id="promptOk">OK</button></div>
+</dialog>
+
+<dialog id="dlgRanking" class="dlg wide">
+<h3>Bảng xếp hạng</h3>
+<div id="rankingBody" class="scroll"></div>
+<div class="row right"><button class="btn" id="closeRanking">Đóng</button></div>
+</dialog>
+
+<dialog id="dlgHistory" class="dlg wide">
+<h3>Lịch sử của bạn</h3>
+<div id="historyBody" class="scroll"></div>
+<div class="row right"><button class="btn" id="closeHistory">Đóng</button></div>
 </dialog>
 
 <script src="app.js"></script></body></html>
