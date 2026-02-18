@@ -1,1 +1,58 @@
+<!doctype html><html lang="vi"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta name="theme-color" content="#111111"/><title>MÈO BOOM! Online</title>
+<link rel="stylesheet" href="style.css"/></head><body>
+<header class="topbar"><div class="brand"><div class="logo">😼💥</div><div>
+<div class="title">MÈO BOOM! Party 10 • Online</div>
+<div class="subtitle">Chơi nhiều điện thoại • Đồng bộ theo phòng</div></div></div>
+<div class="right"><span class="pill" id="conn">Đang kết nối…</span></div></header>
 
+<main class="wrap">
+<section id="lobby" class="card">
+<h2>Phòng chơi</h2>
+<div class="grid">
+<label class="field"><span>Tên</span><input id="name" maxlength="24" placeholder="Ví dụ: Nha"/></label>
+<label class="field"><span>Mã phòng</span><input id="code" maxlength="5" placeholder="VD: A7KQ2"/></label>
+<label class="field"><span>Bộ bài (khi tạo phòng)</span>
+<select id="mode"><option value="classic">Bộ 1</option><option value="space">Bộ 2</option></select>
+</label></div>
+<div class="row">
+<button class="btn primary" id="btnCreate">Tạo phòng</button>
+<button class="btn" id="btnJoin">Vào phòng</button>
+</div>
+<div class="note" id="roomInfo"></div>
+</section>
+
+<section id="game" class="card hidden">
+<div class="gameHead"><div>
+<div class="hline"><span class="pill" id="pillRoom"></span><span class="pill" id="pillMode"></span>
+<span class="pill" id="pillPlayers"></span><span class="pill" id="pillAlive"></span></div>
+<h2 id="turnTitle">—</h2><div class="sub" id="turnSub">—</div></div>
+<div class="deckBox">
+<div class="deckCount"><span id="deckCount">0</span> lá</div>
+<button id="btnStartGame" class="btn primary hidden">Host: Bắt đầu ván</button>
+<button id="btnDraw" class="btn primary">Rút bài</button>
+<button id="btnEnd" class="btn">Kết thúc lượt</button>
+</div></div>
+
+<div class="twoCol">
+<section class="panel"><h3>Bài trên tay</h3><div id="hand" class="hand"></div>
+<div class="row"><button id="btnPlay" class="btn">Đánh lá đã chọn</button></div>
+<small class="hint">Chạm chọn lá. Chạm giữ xem mô tả.</small></section>
+<section class="panel"><h3>Nhật ký</h3><div id="log" class="log"></div>
+<div class="row"><button id="btnPeek" class="btn ghost">Xem lá trên cùng</button></div></section>
+</div>
+<div class="row"><button id="btnLeave" class="btn ghost">Rời phòng</button></div>
+</section>
+</main>
+
+<dialog id="dlgCard" class="dlg">
+<h3 id="cardName">Tên lá</h3><p id="cardDesc" class="cardDesc"></p>
+<div class="row right"><button class="btn" id="btnCloseCard">Đóng</button></div></dialog>
+
+<dialog id="dlgPrompt" class="dlg">
+<h3 id="promptTitle">Chọn</h3><div id="promptBody"></div>
+<div class="row right"><button class="btn" id="promptCancel">Huỷ</button><button class="btn primary" id="promptOk">OK</button></div>
+</dialog>
+
+<script src="app.js"></script></body></html>
