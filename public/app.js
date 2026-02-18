@@ -1,4 +1,5 @@
 const $=(id)=>document.getElementById(id);
+
 const CARD={
 BOOM:{name:"Mèo Boom 💥",desc:"Rút trúng mà không có Gỡ Boom → bị loại."},
 DEFUSE:{name:"Gỡ Boom 🧯",desc:"Dùng khi rút trúng Boom, rồi đặt Boom lại."},
@@ -6,7 +7,7 @@ SOI:{name:"Soi 3 Lá 👀",desc:"Xem 3 lá trên cùng."},
 XAO:{name:"Xáo Trộn 🔀",desc:"Xáo trộn chồng bài."},
 NE:{name:"Né Lượt 🛑",desc:"Bỏ lượt."},
 DAO:{name:"Đảo Chiều 🔁",desc:"Đổi chiều."},
-CUOPN:{name:"Cướp Ngẫu Nhiên 🎯",desc:"Chọn người → cướp ngẫu nhiên."},
+CUOPN:{name:"Cướp Ngẫu Nhiên 🎯",desc:"Chọn người → cướp ngẫu nhiên. (MVP UI chưa hỗ trợ)"},
 TAN2:{name:"Chỉ Định Rút 2 🧠",desc:"Người kế tiếp rút thêm 2."},
 COMBO:{name:"Bộ Đôi 🐾🐾",desc:"(MVP) Online chưa đủ UI."},
 RAC:{name:"Mèo Tấu Hài 😺",desc:"Không tác dụng."},
@@ -18,34 +19,109 @@ NGUOC:{name:"Đảo Ngược ⏪",desc:"Quay lại lượt trước."},
 BIEN:{name:"Biến Hình 🎭",desc:"Chọn biến thành 1 hành động."},
 };
 
-let ws=null, clientId=null, roomCode=null, state=null, hand=[], selected=null, pending=null;
+const LS_KEY = "meoboom_online_session_v4"; // {code, playerToken, name}
+let session = null;
+
+let ws=null, wsId=null, roomCode=null, playerToken=null, state=null, hand=[], selected=null, pending=null;
+let countdownTimer=null;
+let reconnectTimer=null;
+let reconnectDelay=800;
+let lastMyTurn=false;
+
+function loadSession(){
+  try{ session = JSON.parse(localStorage.getItem(LS_KEY) || "null"); }catch{ session=null; }
+}
+function saveSession(){
+  localStorage.setItem(LS_KEY, JSON.stringify({code:roomCode, playerToken, name: ($("name")?.value||"").trim()}));
+}
+function clearSession(){
+  localStorage.removeItem(LS_KEY);
+  session=null;
+}
+
+function toast(msg, ms=2200){
+  const el=$("toast");
+  if(!el) return;
+  el.textContent=msg;
+  el.classList.remove("hidden");
+  clearTimeout(el._t);
+  el._t=setTimeout(()=>el.classList.add("hidden"), ms);
+  try{ if(navigator.vibrate) navigator.vibrate(40); }catch{}
+}
 
 function setConn(t,ok=false){ const el=$("conn"); el.textContent=t; el.classList.toggle("ok",ok); }
-function connect(){
+
+function wsUrl(){
   const proto = location.protocol==="https:" ? "wss":"ws";
-  ws = new WebSocket(`${proto}://${location.host}/ws`);
-  ws.onopen=()=>setConn("Đã kết nối",true);
-  ws.onclose=()=>setConn("Mất kết nối");
+  return `${proto}://${location.host}/ws`;
+}
+
+function connect(){
+  if(ws && (ws.readyState===0 || ws.readyState===1)) return;
+
+  ws = new WebSocket(wsUrl());
+
+  ws.onopen=()=>{
+    setConn("Đã kết nối",true);
+    reconnectDelay=800;
+
+    // auto resume if we have session
+    if(session?.code && session?.playerToken){
+      send({type:"resume", code: session.code, playerToken: session.playerToken});
+    }
+  };
+
+  ws.onclose=()=>{
+    setConn("Mất kết nối (đang nối lại…)");
+    scheduleReconnect();
+  };
+
   ws.onerror=()=>setConn("Lỗi kết nối");
   ws.onmessage=(ev)=>onMsg(JSON.parse(ev.data));
 }
+
+function scheduleReconnect(){
+  if(reconnectTimer) return;
+  reconnectTimer=setTimeout(()=>{
+    reconnectTimer=null;
+    connect();
+    reconnectDelay=Math.min(6000, Math.floor(reconnectDelay*1.4));
+  }, reconnectDelay);
+}
+
 function send(o){ if(ws && ws.readyState===1) ws.send(JSON.stringify(o)); }
 
 function showLobby(){ $("lobby").classList.remove("hidden"); $("game").classList.add("hidden"); }
 function showGame(){ $("lobby").classList.add("hidden"); $("game").classList.remove("hidden"); }
 
 function onMsg(m){
-  if(m.type==="hello_ok"){ clientId=m.clientId; return; }
+  if(m.type==="hello_ok"){ wsId=m.wsId; return; }
   if(m.type==="error"){ alert(m.message); return; }
-  if(m.type==="room_ok"){ roomCode=m.code; $("roomInfo").textContent=`Đang ở phòng: ${roomCode}`; showGame(); return; }
-  if(m.type==="state"){ state=m.state; renderState(); return; }
+  if(m.type==="room_ok"){
+    roomCode=m.code;
+    playerToken=m.playerToken;
+    $("roomInfo").textContent=`Đang ở phòng: ${roomCode}`;
+    saveSession();
+    showInviteUI(roomCode);
+    showGame();
+    if(m.state){ state=m.state; renderState(true); }
+    return;
+  }
+  if(m.type==="state"){ state=m.state; renderState(false); return; }
   if(m.type==="hand"){ hand=m.hand||[]; renderHand(); return; }
   if(m.type==="peek"){ promptChoice("Lá trên cùng", `<p>${(m.cards||[]).map((c,i)=>`${i+1}. ${c}`).join("<br/>")||"Không đủ bài."}</p>`, false); return; }
   if(m.type==="prompt"){ pending=m.prompt; handlePrompt(pending); return; }
 }
 
-function renderState(){
+function myTurn(){
+  if(!state || !state.started) return false;
+  const turn = state.players[state.turnIndex];
+  return turn && turn.alive && turn.playerToken===playerToken;
+}
+
+function renderState(first=false){
   if(!state) return;
+
   $("pillRoom").textContent=`Phòng: ${state.code}`;
   $("pillMode").textContent=state.modeKey==="space"?"Bộ 2":"Bộ 1";
   $("pillPlayers").textContent=`Người: ${state.players.length}`;
@@ -53,17 +129,29 @@ function renderState(){
   $("deckCount").textContent=state.deckCount;
 
   const turn=state.players[state.turnIndex];
-  $("turnTitle").textContent=turn?`Lượt: ${turn.name}`:"—";
-  $("turnSub").textContent=turn?`${turn.name} cần rút ${turn.mustDraw} lá.`:"—";
+  const deadline = state.turnDeadline || 0;
+  const secondsLeft = deadline ? Math.max(0, Math.ceil((deadline - Date.now())/1000)) : 0;
 
-  const isHost = state.hostId===clientId;
+  $("turnTitle").textContent=turn?`Đến lượt: ${turn.name}`:"—";
+  $("turnSub").textContent=turn?`Tự bốc sau ${secondsLeft}s`:"—";
+
+  const isHost = state.hostPlayerToken===playerToken;
   $("btnStartGame").classList.toggle("hidden", !(isHost && !state.started));
-  const myTurn = state.started && turn && turn.id===clientId && turn.alive;
-  $("btnDraw").disabled=!myTurn;
-  $("btnEnd").disabled=!myTurn;
+
+  const canDraw = myTurn() && !pending;
+  $("btnDraw").disabled=!canDraw;
+
+  // notify when it becomes your turn
+  const nowMyTurn = myTurn();
+  if(nowMyTurn && !lastMyTurn && !first){
+    toast("Đến lượt bạn bốc bài!");
+  }
+  lastMyTurn = nowMyTurn;
 
   renderLog();
+  startCountdownUI();
 }
+
 function renderLog(){
   const el=$("log"); el.innerHTML="";
   (state.log||[]).forEach(e=>{
@@ -73,6 +161,7 @@ function renderLog(){
     div.appendChild(t); div.appendChild(msg); el.appendChild(div);
   });
 }
+
 function renderHand(){
   const el=$("hand"); el.innerHTML="";
   hand.forEach(c=>{
@@ -85,13 +174,14 @@ function renderHand(){
     div.appendChild(badge); div.appendChild(name); div.appendChild(desc);
 
     let timer=null;
-    div.addEventListener("touchstart",()=>{ timer=setTimeout(()=>showCard(c.key),500); },{passive:true});
+    div.addEventListener("touchstart",()=>{ timer=setTimeout(()=>showCard(c.key),450); },{passive:true});
     div.addEventListener("touchend",()=>{ if(timer) clearTimeout(timer); timer=null; });
     div.addEventListener("click",()=>{ selected=(selected===c.id?null:c.id); renderHand(); });
 
     el.appendChild(div);
   });
 }
+
 function showCard(k){ $("cardName").textContent=(CARD[k]?.name||k); $("cardDesc").textContent=(CARD[k]?.desc||""); $("dlgCard").showModal(); }
 
 function promptChoice(title, bodyHtml, withCancel=true){
@@ -137,29 +227,120 @@ async function handlePrompt(p){
   }
 }
 
+function startCountdownUI(){
+  if(countdownTimer) return;
+  countdownTimer = setInterval(()=>{
+    if(!state || !state.started) return;
+    const turn=state.players[state.turnIndex];
+    const deadline = state.turnDeadline || 0;
+    const secondsLeft = deadline ? Math.max(0, Math.ceil((deadline - Date.now())/1000)) : 0;
+    if(turn) $("turnSub").textContent=`Tự bốc sau ${secondsLeft}s`;
+  }, 250);
+}
+
+/** Hand view toggle */
+function setHandView(mode){
+  const el=$("hand");
+  $("viewFan").classList.toggle("active", mode==="fan");
+  $("viewCompact").classList.toggle("active", mode==="compact");
+  el.classList.toggle("fan", mode==="fan");
+  el.classList.toggle("compact", mode==="compact");
+  localStorage.setItem("meoboom_hand_view", mode);
+}
+function loadHandView(){
+  const v = localStorage.getItem("meoboom_hand_view") || "fan";
+  setHandView(v==="compact"?"compact":"fan");
+}
+
+/** Invite UI */
+function inviteLink(code){
+  const u = new URL(location.href);
+  u.searchParams.set("room", code);
+  return u.toString();
+}
+function showInviteUI(code){
+  $("inviteBox").classList.remove("hidden");
+  $("inviteCode").textContent=code;
+}
+async function copyText(txt){
+  try{
+    await navigator.clipboard.writeText(txt);
+    toast("Đã copy!");
+  }catch{
+    // fallback
+    const ta=document.createElement("textarea");
+    ta.value=txt; document.body.appendChild(ta);
+    ta.select(); document.execCommand("copy");
+    document.body.removeChild(ta);
+    toast("Đã copy!");
+  }
+}
+
 function bind(){
   $("btnCloseCard").onclick=()=>$("dlgCard").close();
+
   $("btnCreate").onclick=()=>{
     const name=($("name").value||"Host").trim().slice(0,24);
     const modeKey=$("mode").value==="space"?"space":"classic";
+    clearSession();
     send({type:"create_room",name,modeKey});
   };
+
   $("btnJoin").onclick=()=>{
     const name=($("name").value||"Khách").trim().slice(0,24);
     const code=($("code").value||"").trim().toUpperCase();
     if(!code) return alert("Nhập mã phòng");
+    clearSession();
     send({type:"join_room",name,code});
   };
+
   $("btnStartGame").onclick=()=>send({type:"start_game",code:roomCode});
   $("btnDraw").onclick=()=>send({type:"action",code:roomCode,kind:"draw"});
-  $("btnEnd").onclick=()=>send({type:"action",code:roomCode,kind:"end"});
   $("btnPeek").onclick=()=>send({type:"action",code:roomCode,kind:"peek"});
+
   $("btnPlay").onclick=()=>{
     if(!selected) return alert("Chưa chọn lá");
     send({type:"action",code:roomCode,kind:"play",payload:{cardId:selected}});
     selected=null; renderHand();
   };
-  $("btnLeave").onclick=()=>location.reload();
+
+  $("btnLeave").onclick=()=>{
+    // Keep session so can come back
+    toast("Bạn có thể vào lại link, không mất!");
+    location.reload();
+  };
+
+  $("viewFan").onclick=()=>setHandView("fan");
+  $("viewCompact").onclick=()=>setHandView("compact");
+
+  $("btnCopyCode").onclick=()=>copyText($("inviteCode").textContent.trim());
+  $("btnCopyLink").onclick=()=>copyText(inviteLink($("inviteCode").textContent.trim()));
+
+  // iOS/Safari: when app returns from background, re-connect if needed
+  document.addEventListener("visibilitychange",()=>{
+    if(document.visibilityState==="visible"){
+      if(!ws || ws.readyState===3) connect();
+    }
+  });
 }
 
-connect(); bind(); showLobby();
+function initFromUrl(){
+  const u = new URL(location.href);
+  const code = (u.searchParams.get("room")||"").trim().toUpperCase();
+  if(code) $("code").value = code;
+}
+
+function init(){
+  loadSession();
+  if(session?.name) $("name").value = session.name;
+  if(session?.code) $("code").value = session.code;
+
+  initFromUrl();
+  loadHandView();
+
+  connect();
+  bind();
+  showLobby();
+}
+
+init();

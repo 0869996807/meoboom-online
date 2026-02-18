@@ -195,3 +195,55 @@ small{color:var(--muted)}
 .cardDesc{color:var(--muted)}
 
 .right{display:flex;align-items:center;gap:10px}.note{margin-top:10px;color:var(--muted);font-size:13px}
+
+.toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);} 
+
+
+/* ===== Mobile friendly hand display ===== */
+.panelHead{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.seg{display:flex;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.10);border-radius:999px;overflow:hidden}
+.segBtn{appearance:none;border:0;background:transparent;color:rgba(255,255,255,.85);padding:8px 12px;font-weight:700;font-size:12px}
+.segBtn.active{background:rgba(255,255,255,.14);color:#fff}
+
+.hand{
+  display:flex;
+  gap:10px;
+  overflow-x:auto;
+  overflow-y:hidden;
+  -webkit-overflow-scrolling:touch;
+  padding-bottom:6px;
+  scroll-snap-type:x proximity;
+}
+.hand::-webkit-scrollbar{height:8px}
+.hand.fan .cardItem{min-width:220px;max-width:260px;scroll-snap-align:start}
+.hand.compact .cardItem{min-width:150px;max-width:170px}
+.hand.compact .cardItem .desc{display:none}
+.hand.compact .cardItem{padding:10px}
+.hand.compact .cardItem .name{font-size:13px}
+.hand.compact .cardItem .badge{font-size:11px}
+
+.cardItem{flex:0 0 auto}
+@media (max-width:480px){
+  .hand.fan .cardItem{min-width:200px}
+  .btn{min-height:44px}
+}
+
+/* Toast notification */
+.toast{
+  position:fixed;left:50%;bottom:18px;transform:translateX(-50%);
+  background:rgba(17,17,17,.92);
+  border:1px solid rgba(255,255,255,.12);
+  color:#fff;
+  padding:12px 14px;
+  border-radius:16px;
+  box-shadow:0 12px 32px rgba(0,0,0,.35);
+  max-width:min(92vw,480px);
+  z-index:9999;
+  font-weight:700;
+}
+.toast.hidden{display:none}
+
+/* Invite box */
+.inviteBox{margin-top:14px;padding:12px;border:1px solid rgba(255,255,255,.12);border-radius:18px;background:rgba(255,255,255,.06)}
+.inviteBox.hidden{display:none}
+.inviteTitle{font-weight:800;margin-bottom:10px}
